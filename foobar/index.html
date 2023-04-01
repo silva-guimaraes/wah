@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="UTF-8">
+        <title>wah!</title>
+        <style>
+body {
+    background-color: white;
+}
+form {
+    margin-top: 10px;
+}
+#corner-image {
+    position: fixed;
+    right: 0px;
+    bottom: 0px;
+    z-index: -1;
+    width: 24vw;
+    pointer-events: none;
+}
+#main-body {
+    margin: auto auto 10% auto;
+    max-width: 700px;
+    background-color: lightgrey;
+    padding: 30px 60px 30px 60px;
+
+}
+        </style>
+    </head>
+    <body>
+        <div id="main-body">
+            <header>
+                <h1>wah!</h1>
+            </header>
+            <h3>um simples serviço de hospedagem de arquivos.</h3>
+            <form id="main-form" action="http://localhost:8080/upload" method="post" enctype="multipart/form-data">
+                <input type="file" name="file" onchange="enable_submit()"><br><br>
+                <input type="submit" id="submit" value="Upload" disabled>
+            </form>
+            <p id="uploaded" style="display: none;">uploaded: <a id="uploaded-link" target="_blank"></a></p>
+            <script>
+                function enable_submit() {
+                    var submit = document.getElementById("submit");
+                    submit.disabled = false;
+                }
+            </script>
+            <h2>Arquivos disponiveis</h2>
+            <ul id="file-list">
+            </ul>
+            <script>
+                const file_list = document.getElementById("file-list");
+                fetch("http://localhost:8080/files")
+                    .then(response => response.json())
+                    .then(files => {
+                        files.forEach(file_name => {
+
+                            let li = document.createElement("li");
+                            let a = document.createElement("a");
+                            a.setAttribute("href", "http://localhost:8080/download/" + file_name);
+                            a.setAttribute("target", "_blank");
+                            a.innerText = file_name;
+
+                            li.appendChild(a)
+                            file_list.appendChild(li);
+                        });
+                    });
+            </script>
+            <script>
+                var form = document.getElementById("main-form");
+                var show_link = document.getElementById("uploaded-link");
+                var uploaded = document.getElementById("uploaded");
+                form.addEventListener("submit", function(event) {
+
+                    event.preventDefault();
+                    const form_data = new FormData(event.target);
+
+                    fetch("http://localhost:8080/upload", { method: "POST", body: form_data})
+                        .then(response => response.json())
+                        .then(result => {
+                            uploaded.style.display = "block";
+                            show_link.innerText = result;
+                            show_link.setAttribute("href", result);
+                            list_files();
+                        });
+                });
+            </script>
+        </div>
+        <img id="corner-image" src="sympathetic_monkey.jpg" alt="sympathetic  monkey">
+    </body>
+</html>
+
