@@ -10,13 +10,24 @@ body {
 form {
     margin-top: 10px;
 }
-#corner-image {
+#monke {
     position: fixed;
     right: 0px;
     bottom: 0px;
     z-index: -1;
     width: 24vw;
     pointer-events: none;
+    opacity: 0.1;
+}
+#uploaded-link {
+    margin: 35px 10px 10px 10px;
+}
+#bottom-text {
+    position: fixed;
+    bottom: 0;
+    margin: 13px;
+    text-decoration: none;
+    color: grey;
 }
 #main-body {
     margin: auto auto 10% auto;
@@ -24,24 +35,27 @@ form {
     background-color: lightgrey;
     padding: 30px 60px 30px 60px;
 
-}
-        </style>
+} </style>
     </head>
     <body>
         <div id="main-body">
             <header>
                 <h1>wah!</h1>
             </header>
-            <h3>um simples serviço de hospedagem de arquivos.</h3>
+            <h3>um simples serviço de hospedagem temporaria de arquivos.</h3>
             <form id="main-form" action="http://localhost:8080/upload" method="post" enctype="multipart/form-data">
                 <input type="file" name="file" onchange="enable_submit()"><br><br>
                 <input type="submit" id="submit" value="Upload" disabled>
             </form>
-            <p id="uploaded" style="display: none;">uploaded: <a id="uploaded-link" target="_blank"></a></p>
+            <a id="uploaded-link" style="display: none;" target="_blank">arquivo enviado!</a>
             <script>
+                var submit = document.getElementById("submit");
+
                 function enable_submit() {
-                    var submit = document.getElementById("submit");
                     submit.disabled = false;
+                }
+                function disable_submit() {
+                    submit.disabled = true;
                 }
             </script>
             <h2>Arquivos disponiveis</h2>
@@ -67,25 +81,29 @@ form {
             </script>
             <script>
                 var form = document.getElementById("main-form");
-                var show_link = document.getElementById("uploaded-link");
-                var uploaded = document.getElementById("uploaded");
-                form.addEventListener("submit", function(event) {
+                var enviado = document.getElementById("uploaded-link");
 
+
+                form.addEventListener("submit", function(event) {
                     event.preventDefault();
                     const form_data = new FormData(event.target);
 
                     fetch("http://localhost:8080/upload", { method: "POST", body: form_data})
                         .then(response => response.json())
                         .then(result => {
-                            uploaded.style.display = "block";
-                            show_link.innerText = result;
-                            show_link.setAttribute("href", result);
-                            list_files();
+                            enviado.style.display = "block";
+                            enviado.setAttribute("href", "http://localhost:8080/download/" + result);
+                            disable_submit()
+
+                            form.reset()
                         });
                 });
             </script>
         </div>
-        <img id="corner-image" src="sympathetic_monkey.jpg" alt="sympathetic  monkey">
+        <footer>
+            <img id="monke" src="sympathetic_monkey.jpg">
+            <a id="bottom-text" href="https://github.com/silva-guimaraes/wah" target="_blank">github</a>
+        </footer>
     </body>
 </html>
 
