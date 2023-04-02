@@ -44,7 +44,7 @@ form {
             </header>
             <h3>um simples serviço de hospedagem temporaria de arquivos.</h3>
             <form id="main-form" action="http://localhost:8080/upload" method="post" enctype="multipart/form-data">
-                <input type="file" name="file" onchange="enable_submit()"><br><br>
+                <input type="file" id="file" name="file" onchange="enable_submit()"><br><br>
                 <input type="submit" id="submit" value="Upload" disabled>
             </form>
             <a id="uploaded-link" style="display: none;" target="_blank">arquivo enviado!</a>
@@ -80,23 +80,48 @@ form {
                     });
             </script>
             <script>
+                var file = document.getElementById("file");
                 var form = document.getElementById("main-form");
                 var enviado = document.getElementById("uploaded-link");
 
 
+                function reset_form() {
+                    form.reset()
+                    disable_submit()
+                }
                 form.addEventListener("submit", function(event) {
                     event.preventDefault();
                     const form_data = new FormData(event.target);
 
-                    fetch("http://localhost:8080/upload", { method: "POST", body: form_data})
-                        .then(response => response.json())
+                    if (file.files[0].size > 4 * 1000 * 1000) {
+                        window.alert("Arquivo excede o tamanho maximo permitido de 4Mb");
+                        reset_form();
+                        return
+                    }
+
+                    fetch("http://localhost:8080/upload", 
+                        { 
+                            method: "POST",
+                            body: form_data
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.text().then(message => {
+                                    throw new Error(message);
+                                });
+                            }
+                            return response.json()
+                        })
                         .then(result => {
                             enviado.style.display = "block";
                             enviado.setAttribute("href", "http://localhost:8080/download/" + result);
-                            disable_submit()
-
-                            form.reset()
+                            reset_form();
+                        })
+                        .catch(error => {
+                            window.alert(error);
+                            reset_form();
                         });
+;
                 });
             </script>
         </div>
