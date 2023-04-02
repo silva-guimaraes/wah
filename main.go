@@ -1,23 +1,24 @@
 package main
 
 import (
-	"os"
-    "time"
+    "crypto/sha256"
+    "encoding/base64"
     "fmt"
-	"io"
-	"io/ioutil"
+    "io"
+    "io/ioutil"
+    "mime/multipart"
     "net"
-	"net/http"
-	"mime/multipart"
-	"crypto/sha256"
-	"encoding/base64"
-    "gorm.io/gorm"
+    "net/http"
+    "os"
+    "strconv"
+    "time"
+    "github.com/gin-gonic/gin"
     "gorm.io/driver/sqlite"
-	"github.com/gin-gonic/gin"
+    "gorm.io/gorm"
 )
 
-
 const save_folder = "store/"
+const max_size = 4e+6
 
 
 func remove_char(s string, c byte) string {
@@ -46,6 +47,11 @@ func generate_file_hash(file multipart.File) (string, string, error) {
 }
 
 func handle_upload(c *gin.Context, db *gorm.DB) {
+
+    c.Header("Access-Control-Allow-Origin",  "*")
+    c.Header("Access-Control-Allow-Methods",  "POST")
+    c.Header("Access-Control-Allow-Headers",  "Content-Type")
+
     file, _, err := c.Request.FormFile("file")
     if err != nil {
         c.String(http.StatusBadRequest, "Bad request")
@@ -67,30 +73,38 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
         return
     }
     defer out.Close()
-    _, err = io.Copy(out, file)
-    if err != nil {
+
+    content_length, err := strconv.Atoi(c.Request.Header.Get("Content-Length"))
+    fmt.Println(content_length)
+    if err != nil { 
         c.String(http.StatusInternalServerError, "Internal server error")
+        return
+    }
+    if content_length > max_size {
+        os.Remove(filepath)
+        c.String(http.StatusBadRequest, "File size too big")
+        return
+    }
+
+    _, err = io.CopyN(out, file, int64(content_length))
+
+    if err != nil && err != io.EOF {
+        os.Remove(filepath)
+        c.String(http.StatusBadRequest, "File size too big")
         return
     }
 
     // logar arquivo em banco de dados
     ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
-    if err != nil { panic(err) }
-
-    result := db.Create(&files{
-        Hash: hash, 
-        Name: basename, 
-        Ip: ip, 
-        Uploaded: time.Now()})
-
+    if err != nil { 
+        panic(err) 
+    }
+    result := db.Create(&files{Hash: hash, Name: basename, Ip: ip, Uploaded: time.Now()})
     if result.Error != nil {
         panic(result.Error)
     }
 
     // retornar nome do arquivo
-    c.Header("Access-Control-Allow-Origin",  "*")
-    c.Header("Access-Control-Allow-Methods",  "POST")
-    c.Header("Access-Control-Allow-Headers",  "Content-Type")
     c.JSON(http.StatusOK, basename)
 }
 
