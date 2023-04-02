@@ -1,19 +1,19 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/base64"
+	"os"
+    "time"
+    "fmt"
 	"io"
 	"io/ioutil"
-	"mime/multipart"
     "net"
 	"net/http"
-	"os"
-	"github.com/gin-gonic/gin"
-    "time"
+	"mime/multipart"
+	"crypto/sha256"
+	"encoding/base64"
     "gorm.io/gorm"
     "gorm.io/driver/sqlite"
-
+	"github.com/gin-gonic/gin"
 )
 
 
@@ -52,6 +52,7 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
         return
     }
 
+    // gerar nome indentificador do arquivo
     hash, basename, err := generate_file_hash(file)
     if err != nil {
         c.String(http.StatusInternalServerError, "Internal server error")
@@ -59,6 +60,7 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
     }
     filepath := save_folder + basename 
 
+    // salvar arquivo em disco
     out, err := os.Create(filepath)
     if err != nil {
         c.String(http.StatusInternalServerError, "Internal server error")
@@ -70,11 +72,8 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
         c.String(http.StatusInternalServerError, "Internal server error")
         return
     }
-    c.Header("Access-Control-Allow-Origin",  "*")
-    c.Header("Access-Control-Allow-Methods",  "POST")
-    c.Header("Access-Control-Allow-Headers",  "Content-Type")
-    c.JSON(http.StatusOK, "http://localhost:8080/download/" + basename)
 
+    // logar arquivo em banco de dados
     ip, _, err := net.SplitHostPort(c.Request.RemoteAddr)
     if err != nil { panic(err) }
 
@@ -87,6 +86,12 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
     if result.Error != nil {
         panic(result.Error)
     }
+
+    // retornar nome do arquivo
+    c.Header("Access-Control-Allow-Origin",  "*")
+    c.Header("Access-Control-Allow-Methods",  "POST")
+    c.Header("Access-Control-Allow-Headers",  "Content-Type")
+    c.JSON(http.StatusOK, basename)
 }
 
 
@@ -134,28 +139,47 @@ func handle_files(c *gin.Context) {
 }
 
 type files struct {
-    Hash, Name, Ip string
-    Uploaded time.Time
+    Hash        string `gorm:"primaryKey"`
+    Name, Ip    string
+    Uploaded    time.Time
 }
 
 func main() {
     r := gin.Default()
 
+    // banco de dados
     db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
     if err != nil { panic(err) }
-
     db.AutoMigrate(&files{})
-
-
     os.Mkdir("store", 0777)
+
+    // deletar arquivos periodicamente
+    go func () {
+        for {
+            hour_ago := time.Now().Add(-time.Hour)
+            var result []files
+            db.Where("uploaded < ?", hour_ago).Find(&result)
+
+            if len(result) > 0 {
+                for i := range result {
+                    os.Remove(save_folder + result[i].Name)
+                    fmt.Println(save_folder + result[i].Name)
+                }
+                db.Delete(result)
+                fmt.Println(time.Now(), len(result), "files deleted")
+            }
+            time.Sleep(time.Second * 100)
+        }
+    }()
+
     r.POST("/upload", func(c *gin.Context) {
         handle_upload(c, db)
     })
-
     r.GET("/download/:filename", handle_download)
 
     r.GET("/files", handle_files)
 
+    // iniciar servidor
     r.Run(":8080")
 }
 
