@@ -22,17 +22,6 @@ const save_folder = "store/"
 const max_size = 4e+6
 
 
-func remove_char(s string, c byte) string {
-    result := ""
-    for i := 0; i < len(s); i++ {
-        if s[i] != c {
-            result += string(s[i])
-        }
-    }
-    return result
-}
-
-
 func get_file_hash(file multipart.File) (string, error) {
     defer file.Seek(0, 0)
 
@@ -67,6 +56,12 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
     filepath := save_folder + basename 
     if err != nil {
         c.String(http.StatusInternalServerError, "Internal server error")
+        return
+    }
+    var blacklist blacklist
+    db.First(&blacklist, "hash = ?", hash)
+    if len(blacklist.Hash) > 0 {
+        c.String(http.StatusBadRequest, "Blacklisted file")
         return
     }
 
@@ -162,6 +157,11 @@ type files struct {
     Uploaded        time.Time
 }
 
+type blacklist struct {
+    Hash string `gorm:"primaryKey"`
+    Time time.Time
+}
+
 func main() {
     r := gin.Default()
 
@@ -169,6 +169,8 @@ func main() {
     db, err := gorm.Open(sqlite.Open("wah.db"), &gorm.Config{})
     if err != nil { panic(err) }
     db.AutoMigrate(&files{})
+    db.AutoMigrate(&blacklist{})
+
     os.Mkdir("store", 0777)
 
     // deletar arquivos periodicamente
