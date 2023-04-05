@@ -1,20 +1,21 @@
 package main
 
 import (
-    "crypto/sha256"
-    "encoding/base64"
-    "fmt"
     "io"
+    "os"
+    "fmt"
+    "net"
+    "time"
+    "strconv"
+    "net/http"
+    "crypto/sha256"
     "io/ioutil"
     "mime/multipart"
-    "net"
-    "net/http"
-    "os"
-    "strconv"
-    "time"
-    "github.com/gin-gonic/gin"
-    "gorm.io/driver/sqlite"
+    "encoding/base64"
     "gorm.io/gorm"
+    "gorm.io/driver/sqlite"
+    "github.com/gin-gonic/gin"
+    "github.com/gin-gonic/contrib/static"
 )
 
 const save_folder = "store/"
@@ -180,7 +181,7 @@ func main() {
                     fmt.Println(save_folder + result[i].Name)
                 }
                 db.Delete(result)
-                fmt.Println(time.Now(), len(result), "files deleted")
+                fmt.Println(time.Now(), len(result), "file(s) deleted")
             }
             time.Sleep(time.Second * 100)
         }
@@ -189,9 +190,12 @@ func main() {
     r.POST("/upload", func(c *gin.Context) {
         handle_upload(c, db)
     })
+    
     r.GET("/download/:filename", handle_download)
 
     r.GET("/files", handle_files)
+
+    r.Use(static.Serve("/", static.LocalFile("./views", true)))
 
     // iniciar servidor
     r.Run(":8080")
