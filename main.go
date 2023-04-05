@@ -33,18 +33,20 @@ func remove_char(s string, c byte) string {
 }
 
 
-func generate_file_hash(file multipart.File) (string, string, error) {
+func get_file_hash(file multipart.File) (string, error) {
     defer file.Seek(0, 0)
+
     h := sha256.New()
     if _, err := io.Copy(h, file); err != nil {
-        return "", "", err
+        return "", err
     }
 
     hashBytes := h.Sum(nil)
-    hash_string := base64.StdEncoding.EncodeToString(hashBytes)
-    unique_name := remove_char(hash_string[:len(hash_string) / 2], '/')
+    return base64.StdEncoding.EncodeToString(hashBytes), nil
+}
 
-    return hash_string, unique_name, nil
+func generate_handle_name() string {
+    return strconv.FormatInt(time.Now().UnixNano(), 10)
 }
 
 func handle_upload(c *gin.Context, db *gorm.DB) {
@@ -60,12 +62,13 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
     }
 
     // gerar nome indentificador do arquivo
-    hash, basename, err := generate_file_hash(file)
+    hash, err := get_file_hash(file)
+    basename := generate_handle_name()
+    filepath := save_folder + basename 
     if err != nil {
         c.String(http.StatusInternalServerError, "Internal server error")
         return
     }
-    filepath := save_folder + basename 
 
     // salvar arquivo em disco
     out, err := os.Create(filepath)
@@ -154,16 +157,16 @@ func handle_files(c *gin.Context) {
 }
 
 type files struct {
-    Hash        string `gorm:"primaryKey"`
-    Name, Ip    string
-    Uploaded    time.Time
+    Id              int `gorm:"primaryKey;autoIncrement:true"`
+    Hash, Name, Ip  string
+    Uploaded        time.Time
 }
 
 func main() {
     r := gin.Default()
 
     // banco de dados
-    db, err := gorm.Open(sqlite.Open("test.db"), &gorm.Config{})
+    db, err := gorm.Open(sqlite.Open("wah.db"), &gorm.Config{})
     if err != nil { panic(err) }
     db.AutoMigrate(&files{})
     os.Mkdir("store", 0777)
