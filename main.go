@@ -9,12 +9,14 @@ import (
 	"encoding/base64"
 	"io/ioutil"
 	"mime/multipart"
+	"bytes"
+	"html/template"
 	"net/http"
 	"strconv"
 	"time"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"github.com/gin-gonic/contrib/static"
+	// "github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 )
 
@@ -50,13 +52,12 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
         return
     }
 
-    hash, err := get_file_hash(file)
-    basename := generate_handle_name()
-    filepath := save_folder + basename 
-    if err != nil {
+    hash, err := get_file_hash(file); if err != nil {
         c.String(http.StatusInternalServerError, "Internal server error")
         return
     }
+    basename := generate_handle_name()
+    filepath := save_folder + basename 
 
 	// verificar se arquivo não foi banido
     var blacklist blacklist
@@ -67,17 +68,14 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
     }
 
     // salvar arquivo em disco
-    out, err := os.Create(filepath)
-    if err != nil {
+    out, err := os.Create(filepath); if err != nil {
         c.String(http.StatusInternalServerError, "Internal server error")
         return
     }
     defer out.Close()
 
 	// verificar se arquivo não excede tamanho maximo
-    content_length, err := strconv.Atoi(c.Request.Header.Get("Content-Length"))
-	fmt.Println(c.Request.Header)
-    if err != nil {
+    content_length, err := strconv.Atoi(c.Request.Header.Get("Content-Length")); if err != nil {
         os.Remove(filepath)
         c.String(http.StatusInternalServerError, "Internal server error")
         return
@@ -87,8 +85,7 @@ func handle_upload(c *gin.Context, db *gorm.DB) {
         c.String(http.StatusBadRequest, "File size too big")
         return
     }
-    _, err = io.CopyN(out, file, int64(content_length))
-    if err != nil && err != io.EOF {
+    _, err = io.CopyN(out, file, int64(content_length)); if err != nil && err != io.EOF {
         os.Remove(filepath)
         c.String(http.StatusBadRequest, "File size too big")
         return
@@ -172,11 +169,25 @@ type blacklist struct {
 func main() {
     r := gin.Default()
 
+	// template do site de exemplo
+    address := "localhost"
+	var buffer bytes.Buffer
+    template_data, err := ioutil.ReadFile("views/index.html"); if err != nil {
+		panic(err)
+	}
+	tmpl, err := template.New("foo").Parse(string(template_data)); if err != nil {
+		panic(err)
+	}
+	err = tmpl.Execute(&buffer, address); if err != nil {
+		panic(err)
+	}
+	rendered_template := buffer.Bytes()
+
     // banco de dados
-    // db, err := gorm.Open(sqlite.Open("wah.db"), &gorm.Config{})
 	dsn := "host=localhost user=wah password=wah dbname=wah port=5432 sslmode=disable"
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
-    if err != nil {panic(err)}
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{}); if err != nil {
+		panic(err)
+	}
     db.AutoMigrate(&files{})
     db.AutoMigrate(&blacklist{})
 
@@ -188,7 +199,6 @@ func main() {
             hour_ago := time.Now().Add(-time.Hour)
             var result []files
             db.Where("uploaded < ?", hour_ago).Find(&result)
-
             if len(result) > 0 {
                 for i := range result {
                     os.Remove(save_folder + result[i].Name)
@@ -208,8 +218,14 @@ func main() {
 
     r.GET("/files", list_files)
 
-    r.Use(static.Serve("/", static.LocalFile("./views", true)))
+	// index
+	r.GET("/", func(c *gin.Context) {
+		c.Data(http.StatusOK, "text/html; charset=utf-8", rendered_template)
+	})
 
     // iniciar servidor
     r.Run(":8080")
 }
+
+
+

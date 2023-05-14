@@ -43,7 +43,7 @@ form {
                 <h1>wah!</h1>
             </header>
             <h3>um simples serviço de hospedagem temporaria de arquivos.</h3>
-            <form id="main-form" action="http://localhost:8080/upload" method="post" enctype="multipart/form-data">
+            <form id="main-form" action="http://{{.}}:8080/upload" method="post" enctype="multipart/form-data">
                 <input type="file" id="file" name="file" onchange="enable_submit()"><br><br>
                 <input type="submit" id="submit" value="Upload" disabled>
             </form>
@@ -63,14 +63,14 @@ form {
             </ul>
             <script>
                 const file_list = document.getElementById("file-list");
-                fetch("http://localhost:8080/files")
+                fetch("http://{{.}}:8080/files")
                     .then(response => response.json())
                     .then(files => {
                         files.forEach(file_name => {
 
                             let li = document.createElement("li");
                             let a = document.createElement("a");
-                            a.setAttribute("href", "http://localhost:8080/download/" + file_name);
+                            a.setAttribute("href", "http://{{.}}:8080/download/" + file_name);
                             a.setAttribute("target", "_blank");
                             a.innerText = file_name;
 
@@ -98,7 +98,7 @@ form {
                         reset_form();
                         return
                     }
-                    fetch("http://localhost:8080/upload", 
+                    fetch("http://{{.}}:8080/upload", 
                         { 
                             method: "POST",
                             body: form_data
@@ -113,7 +113,7 @@ form {
                         })
                         .then(result => {
                             enviado.style.display = "block";
-                            enviado.setAttribute("href", "http://localhost:8080/download/" + result);
+                            enviado.setAttribute("href", "http://{{.}}:8080/download/" + result);
                             reset_form();
                         })
                         .catch(error => {
@@ -130,4 +130,3 @@ form {
         </footer>
     </body>
 </html>
-
